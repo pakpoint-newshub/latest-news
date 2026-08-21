@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pakistan News Hub | Local DB, Video Bulletins & X Auto-Poster</title>
+  <meta name="description" content="Latest Pakistan news aggregated from multiple sources, video news bulletins, and journalist opinion columns, with automated X (Twitter) posting.">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <a href="#" class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-newspaper"></i>
+      </div>
+      <div class="brand-text">
+        <h1>Pakistan News Hub</h1>
+        <span>Live DB & X Auto-Poster Watcher</span>
+      </div>
+    </a>
+    <div class="nav-actions">
+      <button id="btn-social-config" class="btn btn-secondary" title="Social Media Channels Settings">
+        <i class="fa-solid fa-share-nodes"></i> Social & X Config
+      </button>
+      <button id="btn-export-json" class="btn btn-secondary" title="Export as JSON">
+        <i class="fa-solid fa-file-code"></i> JSON
+      </button>
+      <button id="btn-export-csv" class="btn btn-secondary" title="Export as CSV">
+        <i class="fa-solid fa-file-csv"></i> CSV
+      </button>
+      <button id="btn-fetch-news" class="btn btn-primary">
+        <i class="fa-solid fa-rotate-right" id="sync-icon"></i> Fetch News
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- Non-Endorsement Notice Banner -->
+    <div class="disclaimer-banner">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span><strong>Open Discussion Notice:</strong> Journalist columns & digital vlogs are included for open perspective and do not constitute official news endorsement.</span>
+    </div>
+
+    <!-- Metrics Stats Section -->
+    <section class="stats-grid" id="stats-section">
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Total Stored</div>
+          <div class="stat-value" id="stat-total-articles">--</div>
+        </div>
+        <div class="stat-icon"><i class="fa-solid fa-database"></i></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Posted to X</div>
+          <div class="stat-value" id="stat-posted-twitter" style="color: #60a5fa;">--</div>
+        </div>
+        <div class="stat-icon" style="color: #60a5fa;"><i class="fa-brands fa-x-twitter"></i></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Video Reports</div>
+          <div class="stat-value" id="stat-video-articles" style="color: var(--accent-red, #ef4444);">--</div>
+        </div>
+        <div class="stat-icon" style="color: #ef4444;"><i class="fa-solid fa-circle-play"></i></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-info">
+          <div class="stat-label">Journalist Opinions</div>
+          <div class="stat-value" id="stat-opinion-articles">--</div>
+        </div>
+        <div class="stat-icon" style="color: var(--accent-purple);"><i class="fa-solid fa-comments"></i></div>
+      </div>
+    </section>
+
+    <!-- Search & Source Filter Controls -->
+    <section class="controls-card">
+      <div class="search-box">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="search-input" placeholder="Search news, video bulletins, columns, or keywords..." autocomplete="off">
+      </div>
+      <div class="filter-pills" id="source-filters">
+        <button class="pill active" data-source="All">All Feed Sources</button>
+        <button class="pill video-pill" data-video="true"><i class="fa-solid fa-play"></i> Video Reports</button>
+        <button class="pill opinion-pill" data-opinion="true"><i class="fa-solid fa-pen-nib"></i> Journalist Opinions</button>
+        <button class="pill" data-source="Dawn News">Dawn News</button>
+        <button class="pill" data-source="The Express Tribune">Express Tribune</button>
+        <button class="pill" data-source="Geo TV">Geo TV</button>
+        <button class="pill" data-source="Google News (Pakistan)">Google News</button>
+        <button class="pill" data-source="Al Jazeera - Pakistan">Al Jazeera</button>
+      </div>
+    </section>
+
+    <!-- News Grid Container -->
+    <section>
+      <div class="news-grid" id="news-grid">
+        <!-- Rendered dynamically by app.js -->
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading news database records...</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Article Detail & Video Modal -->
+  <div class="modal-overlay" id="article-modal">
+    <div class="modal-content">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      <div id="modal-body">
+        <!-- Filled dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Social & X Config Modal -->
+  <div class="modal-overlay" id="config-modal">
+    <div class="modal-content" style="max-width: 680px;">
+      <button class="modal-close" id="config-close-btn">&times;</button>
+      <h2 style="font-family: 'Outfit'; font-size: 1.4rem; margin-bottom: 1.5rem; color: #fff;">
+        <i class="fa-solid fa-sliders" style="color: var(--primary);"></i> Social Media & X (Twitter) API Configuration
+      </h2>
+      <form id="social-config-form">
+        
+        <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.25rem;">
+          <h3 style="font-size: 1rem; color: #60a5fa; margin-bottom: 0.75rem;"><i class="fa-brands fa-x-twitter"></i> X (Twitter) API Credentials</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-dim);">API Key (Consumer Key)</label>
+              <input type="text" id="cfg-tw-key" placeholder="API Key" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-dim);">API Secret (Consumer Secret)</label>
+              <input type="password" id="cfg-tw-secret" placeholder="API Key Secret" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-dim);">Access Token</label>
+              <input type="text" id="cfg-tw-token" placeholder="Access Token" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+            </div>
+            <div>
+              <label style="font-size: 0.75rem; color: var(--text-dim);">Access Token Secret</label>
+              <input type="password" id="cfg-tw-toksecret" placeholder="Access Token Secret" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem;">Hashtags</label>
+          <input type="text" id="cfg-hashtags" class="form-input" style="width: 100%; padding: 0.75rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+          <h3 style="font-size: 1rem; color: var(--primary); margin-bottom: 0.75rem;"><i class="fa-brands fa-telegram"></i> Telegram Channel Bot</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+            <input type="text" id="cfg-tg-token" placeholder="Bot Token (e.g. 123456:ABC...)" class="form-input" style="padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+            <input type="text" id="cfg-tg-chat" placeholder="Chat ID / Channel @Username" class="form-input" style="padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+          <h3 style="font-size: 1rem; color: #7289da; margin-bottom: 0.75rem;"><i class="fa-brands fa-discord"></i> Discord Webhook</h3>
+          <input type="text" id="cfg-discord-url" placeholder="Discord Webhook URL (https://discord.com/api/webhooks/...)" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+        </div>
+
+        <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+          <h3 style="font-size: 1rem; color: #e01e5a; margin-bottom: 0.75rem;"><i class="fa-brands fa-slack"></i> Slack Webhook</h3>
+          <input type="text" id="cfg-slack-url" placeholder="Slack Webhook URL (https://hooks.slack.com/...)" class="form-input" style="width: 100%; padding: 0.65rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; color: #fff;">
+        </div>
+
+        <div style="margin-top: 1.75rem; display: flex; justify-content: flex-end; gap: 1rem;">
+          <button type="button" class="btn btn-secondary" id="config-cancel-btn">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Save Credentials</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Application Logic -->
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

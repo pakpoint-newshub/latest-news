@@ -1,0 +1,30 @@
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local Database Files (Keep schema clean, ignore data runtime DBs)
+*.db
+*.sqlite3
+news_database.db
+
+# Sensitive credentials & Webhook tokens
+config.json
+
+# Environment variables
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Data exports
+pakistan_news_export_*.json
+pakistan_news_export_*.csv
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

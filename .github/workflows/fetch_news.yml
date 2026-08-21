@@ -1,0 +1,59 @@
+name: Pakistan News Cloud Auto-Poster & X Watcher
+
+on:
+  schedule:
+    # Run every 15 minutes automatically on GitHub cloud
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch-and-post-to-x:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Configure X (Twitter) Credentials from GitHub Secrets
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+        run: |
+          python -c "
+          import json, os
+          config = {
+              'hashtags': '#Pakistan #PakistanNews #LatestNews',
+              'twitter': {
+                  'enabled': True,
+                  'api_key': os.getenv('TWITTER_API_KEY', ''),
+                  'api_secret': os.getenv('TWITTER_API_SECRET', ''),
+                  'access_token': os.getenv('TWITTER_ACCESS_TOKEN', ''),
+                  'access_token_secret': os.getenv('TWITTER_ACCESS_TOKEN_SECRET', '')
+              }
+          }
+          with open('config.json', 'w') as f:
+              json.dump(config, f, indent=2)
+          print('Configured X (Twitter) API credentials for GitHub Cloud Watcher.')
+          "
+
+      - name: Fetch Latest News, Videos & Opinions
+        run: |
+          python main.py fetch
+          python main.py stats
+
+      - name: Auto-Post New Stories to X (Twitter)
+        run: |
+          python main.py post --channel twitter --limit 3 || true

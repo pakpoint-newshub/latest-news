@@ -1,0 +1,36 @@
+# GitHub Pages Deployment Workflow
+name: Deploy Static Site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "static_site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write      # to deploy to GitHub Pages
+      id-token: write   # to generate OIDC token
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "static_site/"
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v3
+
+      - name: Output deployment URL
+        run: echo "Site deployed to ${{ steps.deployment.outputs.page_url }}"
