@@ -39,6 +39,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   fetchStaticDatabase();
 
+  // Auto-refresh every 15 minutes (900,000 milliseconds)
+  setInterval(() => {
+    fetchStaticDatabase();
+  }, 15 * 60 * 1000);
+
   // Event Listeners
   searchInput.addEventListener('input', (e) => {
     clearTimeout(searchTimeout);
