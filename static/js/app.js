@@ -1,4 +1,4 @@
-// Pakistan News Hub - Client Application Logic
+// Pakistan News Hub - Static Client Application Logic
 
 document.addEventListener('DOMContentLoaded', () => {
   let currentSource = 'All';
@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let isVideoOnly = null;
   let searchQuery = '';
   let searchTimeout = null;
+  let allArticles = [];
 
   // DOM Elements
   const newsGrid = document.getElementById('news-grid');
@@ -31,22 +32,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Stat Elements
   const statTotalArticles = document.getElementById('stat-total-articles');
-  const statTotalSources = document.getElementById('stat-total-sources');
-  const statArticlesToday = document.getElementById('stat-articles-today');
   const statOpinionArticles = document.getElementById('stat-opinion-articles');
   const statVideoArticles = document.getElementById('stat-video-articles');
   const statPostedTwitter = document.getElementById('stat-posted-twitter');
 
   // Initialize
-  fetchStats();
-  fetchArticles();
+  fetchStaticDatabase();
 
   // Event Listeners
   searchInput.addEventListener('input', (e) => {
     clearTimeout(searchTimeout);
-    searchQuery = e.target.value.trim();
+    searchQuery = e.target.value.trim().toLowerCase();
     searchTimeout = setTimeout(() => {
-      fetchArticles();
+      filterAndRenderArticles();
     }, 300);
   });
 
@@ -69,18 +67,16 @@ document.addEventListener('DOMContentLoaded', () => {
         isVideoOnly = null;
         currentSource = pill.getAttribute('data-source') || 'All';
       }
-      fetchArticles();
+      filterAndRenderArticles();
     }
   });
 
-  btnFetchNews.addEventListener('click', triggerFetch);
-  btnExportJson.addEventListener('click', () => window.location.href = '/api/export/json');
-  btnExportCsv.addEventListener('click', () => window.location.href = '/api/export/csv');
-
-  btnSocialConfig.addEventListener('click', openConfigModal);
-  configCloseBtn.addEventListener('click', () => configModal.classList.remove('active'));
-  configCancelBtn.addEventListener('click', () => configModal.classList.remove('active'));
-  socialConfigForm.addEventListener('submit', saveSocialConfig);
+  btnFetchNews.addEventListener('click', () => {
+    showToast('GitHub Actions handles fetching automatically in the cloud every 15 minutes!', 'info');
+  });
+  btnSocialConfig.addEventListener('click', () => {
+    showToast('Social Config must be set via GitHub Secrets (Settings > Secrets > Actions) in the static version!', 'info');
+  });
 
   modalCloseBtn.addEventListener('click', closeModal);
   articleModal.addEventListener('click', (e) => {
@@ -90,53 +86,74 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === configModal) configModal.classList.remove('active');
   });
 
-  // Fetch Dashboard Stats
-  async function fetchStats() {
-    try {
-      const res = await fetch('/api/stats');
-      const data = await res.json();
-      if (data.status === 'success') {
-        const stats = data.stats;
-        statTotalArticles.textContent = stats.total_articles.toLocaleString();
-        statTotalSources.textContent = stats.total_sources;
-        statArticlesToday.textContent = stats.articles_today.toLocaleString();
-        statOpinionArticles.textContent = (stats.opinion_articles || 0).toLocaleString();
-        statVideoArticles.textContent = (stats.video_articles || 0).toLocaleString();
-        if (statPostedTwitter) statPostedTwitter.textContent = (stats.posted_to_twitter || 0).toLocaleString();
-      }
-    } catch (err) {
-      console.error('Error loading stats:', err);
-    }
-  }
-
-  // Fetch News Articles
-  async function fetchArticles() {
+  // Fetch Static Database JSON
+  async function fetchStaticDatabase() {
     newsGrid.innerHTML = `
       <div class="loading-state">
         <div class="spinner"></div>
-        <p>Searching database records...</p>
+        <p>Loading latest news database...</p>
       </div>
     `;
-
     try {
-      const params = new URLSearchParams({ limit: 40 });
-      if (currentSource && currentSource !== 'All') params.append('source', currentSource);
-      if (isOpinionOnly) params.append('is_opinion', 'true');
-      if (isVideoOnly) params.append('has_video', 'true');
-      if (searchQuery) params.append('search', searchQuery);
-
-      const res = await fetch(`/api/articles?${params.toString()}`);
-      const result = await res.json();
-
-      if (result.status === 'success') {
-        renderArticles(result.data.articles);
-      } else {
-        newsGrid.innerHTML = `<div class="empty-state"><p>Error fetching news articles.</p></div>`;
+      // Add timestamp to prevent caching
+      const res = await fetch(`static/latest_news.json?t=${new Date().getTime()}`);
+      if (!res.ok) {
+        throw new Error('JSON not found');
       }
+      allArticles = await res.json();
+      calculateStats();
+      filterAndRenderArticles();
     } catch (err) {
-      console.error('Error fetching articles:', err);
-      newsGrid.innerHTML = `<div class="empty-state"><p>Unable to connect to database server.</p></div>`;
+      console.error('Error loading static database:', err);
+      newsGrid.innerHTML = `
+        <div class="empty-state">
+          <i class="fa-solid fa-triangle-exclamation" style="font-size: 3rem; color: var(--accent-red); margin-bottom: 1rem;"></i>
+          <h3>Database Not Found</h3>
+          <p style="margin-top: 0.5rem;">The GitHub Cloud Watcher hasn't generated the static database yet. It will appear within 15 minutes!</p>
+        </div>
+      `;
     }
+  }
+
+  function calculateStats() {
+    statTotalArticles.textContent = allArticles.length.toLocaleString();
+    let opinions = 0;
+    let videos = 0;
+    let postedTwitter = 0;
+
+    allArticles.forEach(a => {
+      if (a.is_opinion == 1) opinions++;
+      if (a.has_video == 1) videos++;
+      if (a.posted_twitter == 1) postedTwitter++;
+    });
+
+    statOpinionArticles.textContent = opinions.toLocaleString();
+    statVideoArticles.textContent = videos.toLocaleString();
+    if (statPostedTwitter) statPostedTwitter.textContent = postedTwitter.toLocaleString();
+  }
+
+  function filterAndRenderArticles() {
+    let filtered = allArticles;
+
+    if (currentSource && currentSource !== 'All') {
+      filtered = filtered.filter(a => a.source_name === currentSource);
+    }
+    if (isOpinionOnly) {
+      filtered = filtered.filter(a => a.is_opinion == 1);
+    }
+    if (isVideoOnly) {
+      filtered = filtered.filter(a => a.has_video == 1);
+    }
+    if (searchQuery) {
+      filtered = filtered.filter(a => 
+        (a.title && a.title.toLowerCase().includes(searchQuery)) || 
+        (a.summary && a.summary.toLowerCase().includes(searchQuery))
+      );
+    }
+
+    // Limit to 40 items for performance
+    const limit = 40;
+    renderArticles(filtered.slice(0, limit));
   }
 
   // Render Articles Grid
@@ -146,15 +163,15 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="empty-state">
           <i class="fa-solid fa-newspaper" style="font-size: 3rem; color: var(--text-dim); margin-bottom: 1rem;"></i>
           <h3>No Items Found</h3>
-          <p style="margin-top: 0.5rem;">Try adjusting your search query or click "Fetch News" to update feeds.</p>
+          <p style="margin-top: 0.5rem;">Try adjusting your filters.</p>
         </div>
       `;
       return;
     }
 
     newsGrid.innerHTML = articles.map(art => {
-      const isOp = art.is_opinion || art.category === 'Journalist Opinion';
-      const hasVid = art.has_video || art.video_url || art.category === 'Video News';
+      const isOp = art.is_opinion == 1;
+      const hasVid = art.has_video == 1;
       
       let sourceClass = getSourceClass(art.source_name);
       if (hasVid) sourceClass = 'video';
@@ -188,11 +205,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             <div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem;">
               <span style="font-size: 0.75rem; color: var(--text-dim); margin-right: 0.2rem;">Share:</span>
-              <a href="${share.twitter}" target="_blank" rel="noopener" class="btn-social-icon twitter" title="Share to X/Twitter"><i class="fa-brands fa-x-twitter"></i></a>
-              <a href="${share.telegram}" target="_blank" rel="noopener" class="btn-social-icon telegram" title="Share to Telegram"><i class="fa-brands fa-telegram"></i></a>
-              <a href="${share.whatsapp}" target="_blank" rel="noopener" class="btn-social-icon whatsapp" title="Share to WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>
-              <a href="${share.linkedin}" target="_blank" rel="noopener" class="btn-social-icon linkedin" title="Share to LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
-              <a href="${share.facebook}" target="_blank" rel="noopener" class="btn-social-icon facebook" title="Share to Facebook"><i class="fa-brands fa-facebook-f"></i></a>
+              <a href="${share.twitter}" target="_blank" rel="noopener" class="btn-social-icon twitter"><i class="fa-brands fa-x-twitter"></i></a>
+              <a href="${share.whatsapp}" target="_blank" rel="noopener" class="btn-social-icon whatsapp"><i class="fa-brands fa-whatsapp"></i></a>
+              <a href="${share.facebook}" target="_blank" rel="noopener" class="btn-social-icon facebook"><i class="fa-brands fa-facebook-f"></i></a>
             </div>
 
             <div class="card-footer">
@@ -209,203 +224,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }).join('');
   }
 
-  // Fetch Latest News Trigger
-  async function triggerFetch() {
-    btnFetchNews.disabled = true;
-    syncIcon.classList.add('fa-spin');
-    showToast('Syncing latest news, videos, and opinion feeds...', 'info');
-
-    try {
-      const res = await fetch('/api/fetch', { method: 'POST' });
-      const data = await res.json();
-
-      if (data.status === 'success') {
-        showToast(`Sync complete! ${data.report.total_new_inserted} new articles added.`, 'success');
-        fetchStats();
-        fetchArticles();
-      } else {
-        showToast(`Sync error: ${data.message}`, 'error');
-      }
-    } catch (err) {
-      showToast('Failed to trigger news collection.', 'error');
-    } finally {
-      btnFetchNews.disabled = false;
-      syncIcon.classList.remove('fa-spin');
-    }
-  }
-
   // Open Article Detail Modal
-  window.openArticleModal = async function(articleId) {
+  window.openArticleModal = function(articleId) {
+    const art = allArticles.find(a => a.id === articleId);
+    if (!art) return;
+
     articleModal.classList.add('active');
-    modalBody.innerHTML = `
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading details...</p>
-      </div>
-    `;
+    
+    const isOp = art.is_opinion == 1;
+    const hasVid = art.has_video == 1;
+    const links = getShareUrls(art.title, art.link);
 
-    try {
-      const res = await fetch(`/api/articles/${articleId}?full=true`);
-      const data = await res.json();
-
-      if (data.status === 'success') {
-        const art = data.article;
-        const isOp = art.is_opinion || art.category === 'Journalist Opinion';
-        const hasVid = art.has_video || art.video_url || art.category === 'Video News';
-        const links = art.share_links || getShareUrls(art.title, art.link);
-
-        let videoEmbedHtml = '';
-        if (art.video_url) {
-          if (art.video_url.includes('youtube.com') || art.video_url.includes('vimeo.com') || art.video_url.includes('dailymotion.com')) {
-            videoEmbedHtml = `
-              <div class="video-responsive-container">
-                <iframe src="${art.video_url}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
-              </div>
-            `;
-          } else if (art.video_url.endsWith('.mp4')) {
-            videoEmbedHtml = `
-              <div class="video-responsive-container">
-                <video controls src="${art.video_url}"></video>
-              </div>
-            `;
-          }
-        }
-
-        modalBody.innerHTML = `
-          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-            <span class="source-tag ${hasVid ? 'video' : (isOp ? 'opinion' : getSourceClass(art.source_name))}">
-              ${hasVid ? '<i class="fa-solid fa-video"></i> VIDEO REPORT' : (isOp ? 'JOURNALIST OPINION' : escapeHtml(art.source_name))}
-            </span>
-            <span class="card-time">${formatRelativeTime(art.published_at || art.scraped_at)}</span>
+    let videoEmbedHtml = '';
+    if (art.video_url) {
+      if (art.video_url.includes('youtube.com') || art.video_url.includes('vimeo.com') || art.video_url.includes('dailymotion.com')) {
+        videoEmbedHtml = `
+          <div class="video-responsive-container">
+            <iframe src="${art.video_url}" allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"></iframe>
           </div>
-
-          <h2 style="font-family: 'Outfit'; font-size: 1.5rem; margin-bottom: 1rem; color: #fff;">${escapeHtml(art.title)}</h2>
-
-          ${isOp ? `
-            <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.75rem; font-size: 0.85rem; color: #fde68a; margin-bottom: 1.25rem;">
-              <i class="fa-solid fa-triangle-exclamation"></i> <strong>Open Opinion Notice:</strong> Expresses individual journalist commentary for public discussion. Does not constitute an endorsement.
-            </div>
-          ` : ''}
-
-          ${videoEmbedHtml ? videoEmbedHtml : (art.image_url ? `<img src="${art.image_url}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 1.5rem;">` : '')}
-
-          <div style="line-height: 1.8; color: var(--text-muted); font-size: 1rem; margin-bottom: 2rem;">
-            ${escapeHtml(art.content || art.summary).replace(/\n/g, '<br><br>')}
-          </div>
-
-          <div style="border-top: 1px solid var(--border-color); padding-top: 1.25rem; margin-bottom: 1.5rem;">
-            <h4 style="font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.75rem;"><i class="fa-solid fa-share-nodes"></i> Broadcast / Share to Social & X:</h4>
-            <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-              <a href="${links.twitter}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="fa-brands fa-x-twitter"></i> Post to X</a>
-              <a href="${links.telegram}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="fa-brands fa-telegram"></i> Telegram</a>
-              <a href="${links.whatsapp}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
-              <a href="${links.linkedin}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="fa-brands fa-linkedin-in"></i> LinkedIn</a>
-              <a href="${links.facebook}" target="_blank" rel="noopener" class="btn btn-secondary btn-sm"><i class="fa-brands fa-facebook"></i> Facebook</a>
-              <button class="btn btn-primary btn-sm" onclick="broadcastToSocial(${art.id})"><i class="fa-solid fa-paper-plane"></i> Auto-Post API</button>
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 1rem;">
-            <a href="${art.link}" target="_blank" rel="noopener" class="btn btn-primary">
-              <i class="fa-solid fa-external-link"></i> Open Original News Article / Video Link
-            </a>
+        `;
+      } else if (art.video_url.endsWith('.mp4')) {
+        videoEmbedHtml = `
+          <div class="video-responsive-container">
+            <video controls src="${art.video_url}"></video>
           </div>
         `;
       }
-    } catch (err) {
-      modalBody.innerHTML = `<p>Error loading details.</p>`;
     }
+
+    modalBody.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <span class="source-tag ${hasVid ? 'video' : (isOp ? 'opinion' : getSourceClass(art.source_name))}">
+          ${hasVid ? '<i class="fa-solid fa-video"></i> VIDEO REPORT' : (isOp ? 'JOURNALIST OPINION' : escapeHtml(art.source_name))}
+        </span>
+        <span class="card-time">${formatRelativeTime(art.published_at || art.scraped_at)}</span>
+      </div>
+
+      <h2 style="font-family: 'Outfit'; font-size: 1.5rem; margin-bottom: 1rem; color: #fff;">${escapeHtml(art.title)}</h2>
+
+      ${isOp ? `
+        <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.75rem; font-size: 0.85rem; color: #fde68a; margin-bottom: 1.25rem;">
+          <i class="fa-solid fa-triangle-exclamation"></i> <strong>Open Opinion Notice:</strong> Expresses individual journalist commentary for public discussion. Does not constitute an endorsement.
+        </div>
+      ` : ''}
+
+      ${videoEmbedHtml ? videoEmbedHtml : (art.image_url ? `<img src="${art.image_url}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; margin-bottom: 1.5rem;">` : '')}
+
+      <div style="line-height: 1.8; color: var(--text-muted); font-size: 1rem; margin-bottom: 2rem;">
+        ${escapeHtml(art.content || art.summary).replace(/\n/g, '<br><br>')}
+      </div>
+
+      <div style="display: flex; gap: 1rem;">
+        <a href="${art.link}" target="_blank" rel="noopener" class="btn btn-primary">
+          <i class="fa-solid fa-external-link"></i> Open Original News Article / Video Link
+        </a>
+      </div>
+    `;
   };
-
-  // Broadcast via API
-  window.broadcastToSocial = async function(articleId) {
-    showToast('Dispatching post to configured social webhooks & X API...', 'info');
-    try {
-      const res = await fetch('/api/social/post', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ article_id: articleId })
-      });
-      const data = await res.json();
-      if (data.status === 'success') {
-        showToast('Broadcast command completed successfully!', 'success');
-        fetchStats();
-      } else {
-        showToast(`Broadcast failed: ${data.message}`, 'error');
-      }
-    } catch (err) {
-      showToast('Error broadcasting article.', 'error');
-    }
-  };
-
-  // Social Config Modal Functions
-  async function openConfigModal() {
-    configModal.classList.add('active');
-    try {
-      const res = await fetch('/api/social/config');
-      const data = await res.json();
-      if (data.status === 'success') {
-        const cfg = data.config;
-        document.getElementById('cfg-tw-key').value = cfg.twitter?.api_key || '';
-        document.getElementById('cfg-tw-secret').value = cfg.twitter?.api_secret || '';
-        document.getElementById('cfg-tw-token').value = cfg.twitter?.access_token || '';
-        document.getElementById('cfg-tw-toksecret').value = cfg.twitter?.access_token_secret || '';
-
-        document.getElementById('cfg-hashtags').value = cfg.hashtags || '#Pakistan #PakistanNews';
-        document.getElementById('cfg-tg-token').value = cfg.telegram?.bot_token || '';
-        document.getElementById('cfg-tg-chat').value = cfg.telegram?.chat_id || '';
-        document.getElementById('cfg-discord-url').value = cfg.discord?.webhook_url || '';
-        document.getElementById('cfg-slack-url').value = cfg.slack?.webhook_url || '';
-      }
-    } catch (err) {
-      console.error('Error loading social config:', err);
-    }
-  }
-
-  async function saveSocialConfig(e) {
-    e.preventDefault();
-    const configData = {
-      hashtags: document.getElementById('cfg-hashtags').value.trim(),
-      twitter: {
-        enabled: !!(document.getElementById('cfg-tw-key').value.trim() && document.getElementById('cfg-tw-token').value.trim()),
-        api_key: document.getElementById('cfg-tw-key').value.trim(),
-        api_secret: document.getElementById('cfg-tw-secret').value.trim(),
-        access_token: document.getElementById('cfg-tw-token').value.trim(),
-        access_token_secret: document.getElementById('cfg-tw-toksecret').value.trim()
-      },
-      telegram: {
-        enabled: !!document.getElementById('cfg-tg-token').value.trim(),
-        bot_token: document.getElementById('cfg-tg-token').value.trim(),
-        chat_id: document.getElementById('cfg-tg-chat').value.trim()
-      },
-      discord: {
-        enabled: !!document.getElementById('cfg-discord-url').value.trim(),
-        webhook_url: document.getElementById('cfg-discord-url').value.trim()
-      },
-      slack: {
-        enabled: !!document.getElementById('cfg-slack-url').value.trim(),
-        webhook_url: document.getElementById('cfg-slack-url').value.trim()
-      }
-    };
-
-    try {
-      const res = await fetch('/api/social/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configData)
-      });
-      const result = await res.json();
-      if (result.status === 'success') {
-        showToast('Social media & X API credentials saved!', 'success');
-        configModal.classList.remove('active');
-        fetchStats();
-      } else {
-        showToast('Failed to save configuration.', 'error');
-      }
-    } catch (err) {
-      showToast('Error saving settings.', 'error');
-    }
-  }
 
   function closeModal() {
     articleModal.classList.remove('active');
@@ -425,18 +300,16 @@ document.addEventListener('DOMContentLoaded', () => {
   function getShareUrls(title, link) {
     const text = encodeURIComponent(title + "\n#Pakistan #PakistanNews");
     const url = encodeURIComponent(link);
-
     return {
       twitter: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
-      telegram: `https://t.me/share/url?url=${url}&text=${text}`,
       whatsapp: `https://api.whatsapp.com/send?text=${text}%20${url}`,
-      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${url}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${url}`
     };
   }
 
   // Utilities
   function getSourceClass(name) {
+    if (!name) return '';
     if (name.includes('Dawn')) return 'dawn';
     if (name.includes('Tribune')) return 'tribune';
     if (name.includes('Geo')) return 'geo';

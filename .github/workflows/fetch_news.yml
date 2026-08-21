@@ -9,6 +9,8 @@ on:
 jobs:
   fetch-and-post-to-x:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to commit database updates back to the repo
 
     steps:
       - name: Checkout Code
@@ -46,7 +48,6 @@ jobs:
           }
           with open('config.json', 'w') as f:
               json.dump(config, f, indent=2)
-          print('Configured X (Twitter) API credentials for GitHub Cloud Watcher.')
           "
 
       - name: Fetch Latest News, Videos & Opinions
@@ -57,3 +58,16 @@ jobs:
       - name: Auto-Post New Stories to X (Twitter)
         run: |
           python main.py post --channel twitter --limit 3 || true
+
+      - name: Export Static Database for GitHub Pages
+        run: |
+          mkdir -p static
+          python main.py export --format json --output static/latest_news.json
+
+      - name: Commit and Push Database Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add news_database.db static/latest_news.json
+          # Only commit if there are changes
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update news database & static JSON" && git push)
