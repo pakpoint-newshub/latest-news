@@ -56,9 +56,27 @@ DEFAULT_SOURCES = [
         "category": "Journalist Opinion"
     },
     {
-        "name": "Social Media Journalists (Imran Riaz, Siddique Jaan, Shahbaz Gill)",
-        "feed_url": "https://news.google.com/rss/search?q=Imran+Riaz+Khan+OR+Shahbaz+Gill+OR+Siddique+Jaan+OR+Sabir+Shakir+OR+Moeed+Pirzada+OR+Sami+Abraham&hl=en-PK&gl=PK&ceid=PK:en",
-        "website_url": "https://news.google.com",
+        "name": "Journalist Opinion: Imran Riaz Khan",
+        "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCaszgR2TH3qNw_CxLHAd2SQ",
+        "website_url": "https://www.youtube.com/@imranriazkhan1",
+        "category": "Journalist Opinion"
+    },
+    {
+        "name": "Journalist Opinion: Dr. Shahbaz Gill",
+        "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCXQiJKknQM14uQakw0evifw",
+        "website_url": "https://www.youtube.com/@DrShahbazGill",
+        "category": "Journalist Opinion"
+    },
+    {
+        "name": "Journalist Opinion: Dr. Moeed Pirzada",
+        "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCgiIQwMYZGKwTc85g4H1ODQ",
+        "website_url": "https://www.youtube.com/@MoeedPirzada",
+        "category": "Journalist Opinion"
+    },
+    {
+        "name": "Journalist Opinion: Waqar Malik",
+        "feed_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCFqjOGv7tON3rY9kHPLa-OQ",
+        "website_url": "https://www.youtube.com/@WaqarMaliks",
         "category": "Journalist Opinion"
     },
     {
