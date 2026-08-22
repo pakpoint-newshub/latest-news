@@ -80,7 +80,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "Auto-update: news database & static JSON [skip ci]"
+            git commit -m "Auto-update: news database & static JSON"
             # Pull with rebase to handle any concurrent updates, then push
             git pull --rebase origin main
             git push origin main
