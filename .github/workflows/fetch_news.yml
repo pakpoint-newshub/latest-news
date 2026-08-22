@@ -15,6 +15,11 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          # Use the built-in GITHUB_TOKEN with write access
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Fetch full history to avoid push conflicts
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -65,9 +70,19 @@ jobs:
           python main.py export --format json --output static/latest_news.json
 
       - name: Commit and Push Database Updates
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add news_database.db static/latest_news.json
-          # Only commit if there are changes
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Auto-update news database & static JSON" && git push)
+          # Only commit if there are staged changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Auto-update: news database & static JSON [skip ci]"
+            # Pull with rebase to handle any concurrent updates, then push
+            git pull --rebase origin main
+            git push origin main
+            echo "Successfully pushed database updates."
+          fi
