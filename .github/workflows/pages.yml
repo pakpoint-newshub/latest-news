@@ -4,6 +4,12 @@ name: Deploy Static Site to GitHub Pages
 on:
   push:
     branches: [main]
+    # Only redeploy when site files or data actually change
+    paths:
+      - 'index.html'
+      - 'static/**'
+      - 'templates/**'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 jobs:
@@ -13,6 +19,9 @@ jobs:
       contents: read
       pages: write      # to deploy to GitHub Pages
       id-token: write   # to generate OIDC token
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
