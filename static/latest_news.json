@@ -1,5 +1,28 @@
 [
   {
+    "id": 676467,
+    "title": "Syrian child killed after roadside object explodes near Damascus",
+    "link": "https://www.aljazeera.com/video/newsfeed/2026/9/13/09-13-syrian-child-explosion-clip-mp4?traffic_source=rss",
+    "source_id": 4,
+    "source_name": "Al Jazeera - Pakistan",
+    "summary": "A child has been killed after an explosive object detonated when he touched it near Damascus.",
+    "content": "A child has been killed after an explosive object detonated when he touched it near Damascus.",
+    "author": "",
+    "category": "International",
+    "published_at": "2026-09-13 18:30:29",
+    "image_url": "",
+    "scraped_at": "2026-09-13 18:53:05",
+    "posted_telegram": 0,
+    "posted_discord": 0,
+    "posted_slack": 0,
+    "posted_at": null,
+    "is_opinion": 0,
+    "disclaimer": null,
+    "video_url": "",
+    "has_video": 0,
+    "posted_twitter": 0
+  },
+  {
     "id": 675525,
     "title": "4 miners die in coal mine gas explosion in Balochistan's Harnai",
     "link": "https://www.dawn.com/news/2029645/4-miners-die-in-coal-mine-gas-explosion-in-balochistans-harnai",
